@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('hf', {
   workspace: (op, args) => ipcRenderer.send('shell:workspace', { op, args }),
   setLocked: value => ipcRenderer.send('shell:set-locked', !!value),
   setQuickSections: ids => ipcRenderer.send('shell:set-quick-sections', ids),
-  projectAction: op => ipcRenderer.send('shell:project', op),
+  projectAction: (op, key) => ipcRenderer.send('shell:project', { op, key }),
   onCommand: cb => {
     const listener = (_event, command) => cb(command);
     ipcRenderer.on('shell:command', listener);

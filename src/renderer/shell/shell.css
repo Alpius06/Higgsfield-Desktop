@@ -69,6 +69,11 @@ button {
   user-select: none;
 }
 
+/* fitToolbar() measures the row with nothing shrunk */
+#toolbar.hf-measure > * {
+  flex-shrink: 0;
+}
+
 /* Section buttons: Image, Video, Cinema Studio… (chosen with the ▾ after them) */
 .hf-quick {
   display: flex;
@@ -113,8 +118,14 @@ button {
   color: var(--hf-text);
 }
 
-.hf-project-chip[hidden] {
-  display: none;
+.hf-project-chip:not(.hf-in-project) {
+  flex-shrink: 0;
+  color: var(--hf-muted);
+}
+
+/* "Projects" is short: the pinned projects give way before it is cut */
+.hf-project-chip:not(.hf-in-project) .hf-project-name {
+  flex-shrink: 0;
 }
 
 .hf-project-chip:hover,
@@ -133,6 +144,77 @@ button {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* "+2" on the Projects button: pinned projects the toolbar has no room for */
+.hf-project-chip[data-more]:not([data-more=""])::after {
+  content: attr(data-more);
+  color: var(--hf-muted);
+  font-size: 11px;
+}
+
+/* Pinned projects: section-style buttons with a lettered badge in the project's colour,
+   set from shared/badge.js as --hf-badge */
+.hf-pinned:not(:empty) {
+  padding-left: 8px;
+  border-left: 1px solid var(--hf-border-strong);
+}
+
+.hf-pinned-project {
+  position: relative;
+}
+
+.hf-pinned-project[hidden] {
+  display: none;
+}
+
+.hf-pinned-project span {
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The pinned project the active tab is in: underlined in its colour */
+.hf-pinned-project.hf-current::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--hf-badge, var(--hf-accent));
+}
+
+.hf-compact .hf-pinned-project.hf-current::after {
+  left: 6px;
+  right: 6px;
+}
+
+.hf-project-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: var(--hf-badge, #3b4249);
+  color: var(--hf-text);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hf-compact .hf-pinned-project {
+  width: auto;
+  min-width: 30px;
+  padding: 0 6px;
 }
 
 .hf-toolbar-spacer {
@@ -257,6 +339,122 @@ button {
   background: var(--hf-border-strong);
 }
 
+.hf-menu-item.hf-current {
+  color: var(--hf-accent);
+}
+
+.hf-menu-item[hidden],
+.hf-menu-row[hidden] {
+  display: none;
+}
+
+/* A badge before an item's text, in a fixed slot so names line up */
+.hf-menu-lead {
+  display: inline-flex;
+  flex: none;
+  width: 22px;
+}
+
+/* Quiet text at the end of an item (the owner of a shared project) */
+.hf-menu-hint {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--hf-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* An item with a small button at its end (pin to toolbar); the row highlights as one */
+.hf-menu-row {
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+}
+
+.hf-menu-row:hover,
+.hf-menu-row:focus-within {
+  background: var(--hf-hover);
+}
+
+.hf-menu-row .hf-menu-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hf-menu-row .hf-menu-item:hover,
+.hf-menu-row .hf-menu-item:focus-visible {
+  background: transparent;
+}
+
+.hf-menu-side {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--hf-muted);
+  cursor: pointer;
+  opacity: 0.4;
+}
+
+.hf-menu-side .hf-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.hf-menu-row:hover .hf-menu-side,
+.hf-menu-row:focus-within .hf-menu-side {
+  opacity: 1;
+}
+
+.hf-menu-side:hover,
+.hf-menu-side:focus-visible {
+  background: var(--hf-hover);
+  color: var(--hf-text);
+  outline: none;
+}
+
+.hf-menu-side[aria-pressed="true"] {
+  color: var(--hf-accent);
+  opacity: 1;
+}
+
+.hf-menu-side[aria-pressed="true"] .hf-icon {
+  fill: currentColor;
+}
+
+.hf-menu-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 28px;
+  margin: 2px 2px 4px;
+  padding: 0 8px;
+  border: 1px solid var(--hf-border-strong);
+  border-radius: 5px;
+  color: var(--hf-muted);
+}
+
+.hf-menu-search-box:focus-within {
+  border-color: var(--hf-accent);
+}
+
+.hf-menu-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--hf-text);
+  font: inherit;
+  font-size: 12.5px;
+}
+
 /* ---------- toolbar status ---------- */
 
 .hf-status {
@@ -264,6 +462,7 @@ button {
   align-items: center;
   gap: 4px;
   min-width: 0;
+  overflow: hidden;
   margin-right: 6px;
   color: var(--hf-muted);
   font-size: 12px;

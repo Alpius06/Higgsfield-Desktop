@@ -342,7 +342,7 @@ label.row:hover { background: rgba(255, 255, 255, 0.015); }
 }
 .folder-actions { display: flex; gap: 8px; }
 
-/* ---- Cinema Studio projects (Downloads page) ---- */
+/* ---- Cinema Studio projects (Projects page) ---- */
 
 .group-desc {
   margin: -2px 4px 10px;
@@ -365,15 +365,21 @@ label.row:hover { background: rgba(255, 255, 255, 0.015); }
   gap: 10px;
   min-height: 30px;
 }
-.pj-icon {
-  flex: 0 0 18px;
-  width: 18px;
+/* The project's lettered badge, as on the toolbar (colour from shared/badge.js) */
+.pj-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
   height: 18px;
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
 }
 .pj-title {
   flex: 1;
@@ -381,7 +387,20 @@ label.row:hover { background: rgba(255, 255, 255, 0.015); }
   display: flex;
   align-items: center;
 }
-.pj-open { flex: 0 0 auto; }
+.pj-open,
+.pj-pin { flex: 0 0 auto; }
+.pj-pin { display: inline-flex; align-items: center; gap: 6px; }
+.pj-pin svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pj-pin.is-on svg { fill: var(--accent); stroke: var(--accent); }
+.pj-owner { margin-right: auto; }
 
 .pj-body { padding-left: 28px; }
 .pj-rename-hint { margin-top: 4px; color: var(--muted); font-size: 12px; }
@@ -421,7 +440,11 @@ label.row:hover { background: rgba(255, 255, 255, 0.015); }
 .pj-path {
   flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
   user-select: text;
 }
 .pj-actions {

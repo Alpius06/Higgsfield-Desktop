@@ -113,6 +113,11 @@
     community: ['M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M2.5 20a6.5 6.5 0 0 1 13 0', 'M16 4.5a3.5 3.5 0 0 1 0 6.5', 'M18 14.2a6.5 6.5 0 0 1 3.5 5.8'],
     dot: ['M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6'],
     check: ['M5 12.5l4.5 4.5L19 7.5'],
+    pin: ['M9 4h6', 'M10 4v5l-3 4h10l-3-4V4', 'M12 13v7'],
+    search: ['M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14', 'M16 16l4 4'],
+    folder: ['M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z'],
+    rename: ['M5 19h3.5L18.2 9.3a2.1 2.1 0 0 0-3-3L5.5 16v3z', 'M13.5 8l3 3'],
+    sliders: ['M4 7h10', 'M18 7h2', 'M4 17h4', 'M12 17h8', 'M16 5a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 'M10 15a2 2 0 1 0 0 4a2 2 0 1 0 0-4'],
   };
 
   function icon(name) {
@@ -656,9 +661,10 @@
   }
 
   // ---------- window chrome: one toolbar row ----------
-  // [section buttons ▾] [Cinema Studio project chip] … [status] [Workspace ▾] [lock]
+  // [section buttons ▾] [Projects ▾ / current project] [pinned projects] … [status] [Workspace ▾] [lock]
 
-  const chrome = { quick: [], workspaces: [], csProject: null, csProjects: [], menu: null };
+  const chrome = { quick: [], workspaces: [], csProject: null, csProjects: [], menu: null, menuQuery: '' };
+  const SEARCH_FROM = 7; // the Projects menu gets a search box from this many projects
 
   function toolButton(className, children, label) {
     const button = el('button', 'hf-tool-button ' + className);
@@ -680,9 +686,9 @@
     quickMore.setAttribute('aria-expanded', 'false');
     quickMore.addEventListener('click', () => toggleMenu(quickMore, quickMenu, 'left'));
 
-    const projectName = el('span', 'hf-project-name');
+    const projectName = el('span', 'hf-project-name', 'Projects');
     const projectButton = toolButton('hf-project-chip', [icon('cinema'), projectName, icon('chevron')]);
-    projectButton.hidden = true;
+    projectButton.title = 'Cinema Studio projects';
     projectButton.setAttribute('aria-haspopup', 'menu');
     projectButton.setAttribute('aria-expanded', 'false');
     projectButton.addEventListener('click', () => toggleMenu(projectButton, projectMenu, 'left'));
@@ -706,16 +712,36 @@
       hf.setLocked(locked);
     });
 
-    bar.append(quick, quickMore, projectButton, el('div', 'hf-toolbar-spacer'), status, wsButton, lockButton);
-    Object.assign(chrome, { bar, quickBox: quick, projectButton, projectName, activity, lastFile, wsButton, lockButton });
+    const pinned = el('div', 'hf-quick hf-pinned');
+    pinned.setAttribute('role', 'toolbar');
+    pinned.setAttribute('aria-label', 'Pinned projects');
+
+    bar.append(quick, quickMore, projectButton, pinned, el('div', 'hf-toolbar-spacer'), status, wsButton, lockButton);
+    Object.assign(chrome, { bar, quickBox: quick, pinnedBox: pinned, projectButton, projectName, activity, lastFile, wsButton, lockButton });
     new ResizeObserver(fitToolbar).observe(bar);
   }
 
-  // Section buttons drop their labels when the row runs out of room.
+  // Section and pinned project buttons drop their labels when the row runs out of room;
+  // pinned projects that still do not fit are left to the Projects menu, which lists them first.
   function fitToolbar() {
     const bar = chrome.bar;
+    // Measured with nothing shrunk, since the project button and the status would shrink first.
+    const over = () => {
+      bar.classList.add('hf-measure');
+      const result = bar.scrollWidth > bar.clientWidth;
+      bar.classList.remove('hf-measure');
+      return result;
+    };
+    const pins = [...chrome.pinnedBox.children];
+    let hidden = 0;
+    for (const pin of pins) pin.hidden = false;
+    chrome.projectButton.dataset.more = '';
     bar.classList.remove('hf-compact');
-    bar.classList.toggle('hf-compact', bar.scrollWidth > bar.clientWidth);
+    if (over()) bar.classList.add('hf-compact');
+    while (hidden < pins.length && over()) {
+      pins[pins.length - ++hidden].hidden = true;
+      chrome.projectButton.dataset.more = '+' + hidden;
+    }
   }
 
   // Goes to a tab already showing the section, or opens one.
@@ -742,33 +768,110 @@
     if (chrome.menu && chrome.menu.build === quickMenu) reopenMenu();
   }
 
-  // Marks the button of the section the active tab is showing.
+  // Marks the button of the section, or the pinned project, the active tab is showing.
   function syncQuickSections() {
     const page = api && activePage();
     const current = page && sectionFor(page.url);
     for (const button of chrome.quickBox.children) {
       button.classList.toggle('hf-current', !!current && current.id === button.dataset.section);
     }
+    const project = chrome.csProject && chrome.csProject.key;
+    for (const button of chrome.pinnedBox.children) {
+      button.classList.toggle('hf-current', !!project && project === button.dataset.key);
+    }
   }
 
   // The Cinema Studio project of the active tab (main detects it), or null.
   function setCsProject(project) {
     chrome.csProject = project && project.name ? project : null;
-    const button = chrome.projectButton;
-    button.hidden = !chrome.csProject;
-    if (chrome.csProject) {
-      chrome.projectName.textContent = String(project.name);
-      button.title = project.folder ? project.name + '\n' + project.folder : String(project.name);
-      button.setAttribute('aria-label', 'Cinema Studio project: ' + project.name);
-    } else if (chrome.menu && chrome.menu.anchor === button) {
-      closeMenu();
-    }
+    syncProjectButton();
+    if (chrome.menu && chrome.menu.build === projectMenu) reopenMenu();
+    syncQuickSections();
     fitToolbar();
   }
 
   function setCsProjects(items) {
-    chrome.csProjects = Array.isArray(items) ? items : [];
+    chrome.csProjects = Array.isArray(items) ? items.filter(p => p && p.key && p.name && isSite(p.url)) : [];
+    const pinned = pinnedProjects();
+    chrome.pinnedBox.replaceChildren(...pinned.map((p, i) => pinnedButton(p, i, pinned.length)));
+    syncProjectButton();
+    syncQuickSections();
+    fitToolbar();
     if (chrome.menu && chrome.menu.build === projectMenu) reopenMenu();
+  }
+
+  function pinnedProjects() {
+    return chrome.csProjects.filter(p => p.pinned).sort((a, b) => a.pinned - b.pinned);
+  }
+
+  function knownProject(key) {
+    return chrome.csProjects.find(p => p.key === key) || null;
+  }
+
+  // Named after the active tab's project, unless that project has its own (lit) button already.
+  function syncProjectButton() {
+    const project = chrome.csProject;
+    const button = chrome.projectButton;
+    const pinned = !!project && !!(knownProject(project.key) || {}).pinned;
+    const named = !!project && !pinned;
+    button.classList.toggle('hf-in-project', named);
+    chrome.projectName.textContent = named ? String(project.name) : 'Projects';
+    if (named) {
+      button.title = project.folder ? project.name + '\n' + project.folder : String(project.name);
+      button.setAttribute('aria-label', 'Cinema Studio project: ' + project.name);
+    } else {
+      button.title = 'Cinema Studio projects';
+      button.setAttribute('aria-label', 'Cinema Studio projects');
+    }
+  }
+
+  // A small square with the project's initials in its Higgsfield colour, so pinned
+  // projects stay apart when the toolbar drops their names.
+  function projectBadge(project) {
+    const { text, bg, fg } = HFBadge.badge(project);
+    const badge = el('i', 'hf-project-badge', text);
+    badge.style.setProperty('--hf-badge', bg);
+    badge.style.color = fg;
+    return badge;
+  }
+
+  function projectTitle(project) {
+    return project.shared && project.owner ? project.name + ' (shared by @' + project.owner + ')' : project.name;
+  }
+
+  function pinnedButton(project, index, count) {
+    const badge = projectBadge(project);
+    const button = toolButton('hf-quick-button hf-pinned-project', [badge, el('span', null, project.name)], projectTitle(project));
+    button.dataset.key = project.key;
+    button.style.setProperty('--hf-badge', badge.style.getPropertyValue('--hf-badge'));
+    button.title = projectTitle(project) + '\nCtrl+click: new tab · Right-click: more';
+    button.addEventListener('click', e => openProject(project, e.ctrlKey));
+    button.addEventListener('auxclick', e => { if (e.button === 1) openProject(project, true); });
+    button.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      closeMenu();
+      openMenu(button, ({ add, separator }) => {
+        add('Open in new tab', () => openProject(project, true), { icon: 'plus' });
+        add('Open project folder', () => hf.projectAction('openFolder', project.key), { icon: 'folder' });
+        separator();
+        add('Move left', () => hf.projectAction('moveLeft', project.key), { icon: 'back', disabled: index === 0 });
+        add('Move right', () => hf.projectAction('moveRight', project.key), { icon: 'forward', disabled: index === count - 1 });
+        add('Unpin from toolbar', () => hf.projectAction('unpin', project.key), { icon: 'pin' });
+      }, 'left');
+    });
+    return button;
+  }
+
+  // Goes to a tab already inside the project (or one of its folders), or opens one.
+  function openProject(project, newTab) {
+    const norm = url => {
+      try { return decodeURIComponent(pageKey(url)).toLowerCase(); } catch { return pageKey(url).toLowerCase(); }
+    };
+    const base = norm(project.url);
+    const shows = page => page && (norm(page.url) + '/').startsWith(base + '/');
+    const page = newTab ? null : (shows(activePage()) ? activePage() : [...pages.values()].find(shows));
+    if (page) showPage(page);
+    else openAfterActive(project.url);
   }
 
   function setWorkspaces(items) {
@@ -830,58 +933,160 @@
     add('Reset Layout', resetLayout);
   }
 
-  function projectMenu({ add, label, separator }) {
-    add('Open project folder', () => hf.projectAction('openFolder'), { disabled: !chrome.csProject || !chrome.csProject.folder });
-    add('Rename…', () => hf.projectAction('rename'));
-    separator();
-    if (chrome.csProjects.length) {
-      label('Recent projects');
-      for (const p of chrome.csProjects) add(p.name, () => openAfterActive(p.url), { icon: 'cinema' });
+  // Pinned first (in toolbar order), then yours and shared ones, most recently used first.
+  // While the menu stays open, pinning or unpinning leaves every row where it is; the
+  // groups are sorted again the next time it opens.
+  function projectMenu({ add, label, separator, search }) {
+    const current = chrome.csProject && knownProject(chrome.csProject.key);
+    if (chrome.csProject) {
+      add('Open project folder', () => hf.projectAction('openFolder'), { icon: 'folder', disabled: !chrome.csProject.folder });
+      add('Rename folder…', () => hf.projectAction('rename'), { icon: 'rename' });
+      if (current) {
+        add(current.pinned ? 'Unpin from toolbar' : 'Pin to toolbar',
+          () => hf.projectAction(current.pinned ? 'unpin' : 'pin', current.key), { icon: 'pin' });
+      }
+      separator();
     }
-    add('All Cinema Studio projects', () => openAfterActive(HOME + 'generate?view=projects'));
+    const all = chrome.csProjects;
+    if (all.length >= SEARCH_FROM) search('Find a project');
+    const groupOf = p => (p.pinned ? 0 : p.shared ? 2 : 1);
+    const frozen = chrome.menuGroups || (chrome.menuGroups = new Map(all.map(p => [p.key, groupOf(p)])));
+    const order = new Map(all.map((p, i) => [p.key, i]));
+    const groups = [['Pinned'], ['Your projects'], ['Shared with you']].map(([title]) => [title, []]);
+    for (const p of all) groups[frozen.has(p.key) ? frozen.get(p.key) : groupOf(p)][1].push(p);
+    groups[0][1].sort((a, b) => (a.pinned || Infinity) - (b.pinned || Infinity) || order.get(a.key) - order.get(b.key));
+    for (const [title, list] of groups) {
+      if (!list.length) continue;
+      label(title, { filterGroup: true });
+      for (const p of list) {
+        add(p.name, e => openProject(p, e.ctrlKey), {
+          lead: projectBadge(p),
+          hint: p.shared && p.owner ? '@' + p.owner : '',
+          title: projectTitle(p) + '\nCtrl+click: new tab · P: pin',
+          current: !!chrome.csProject && chrome.csProject.key === p.key,
+          filter: p.name + ' ' + (p.owner || ''),
+          side: {
+            icon: 'pin',
+            label: p.pinned ? 'Unpin from toolbar' : 'Pin to toolbar',
+            on: !!p.pinned,
+            onClick: () => hf.projectAction(p.pinned ? 'unpin' : 'pin', p.key),
+          },
+        });
+      }
+    }
+    if (!all.length) add('Open a project in Cinema Studio and it shows up here', null, { disabled: true });
+    separator();
+    add('All Cinema Studio projects', () => openAfterActive(HOME + 'generate?view=projects'), { icon: 'cinema' });
+    add('Manage projects…', () => hf.projectAction('manage'), { icon: 'sliders' });
   }
 
   function toggleMenu(anchor, build, align) {
     const same = chrome.menu && chrome.menu.anchor === anchor;
     closeMenu();
+    chrome.menuQuery = '';
+    chrome.menuGroups = null;
     if (!same) openMenu(anchor, build, align);
+  }
+
+  // Everything in a menu that takes keyboard focus, in order.
+  function focusables(menu) {
+    return [...menu.querySelectorAll('.hf-menu-search, .hf-menu-item:not(:disabled), .hf-menu-side')];
   }
 
   // Rebuilds the open menu with fresh contents, keeping keyboard focus on the same item.
   function reopenMenu() {
     const { anchor, build, align, element } = chrome.menu;
-    const focusIndex = [...element.querySelectorAll('.hf-menu-item:not(:disabled)')].indexOf(document.activeElement);
+    const focusIndex = focusables(element).indexOf(document.activeElement);
     closeMenu();
-    openMenu(anchor, build, align, focusIndex);
+    openMenu(anchor, build, align, focusIndex < 0 ? null : focusIndex);
   }
 
-  function openMenu(anchor, build, align, focusIndex = 0) {
+  // Hides the items that do not match the search box, and the group labels with them.
+  function filterMenu(menu, query) {
+    const q = query.trim().toLowerCase();
+    let shown = 0;
+    for (const item of menu.querySelectorAll('[data-filter]')) {
+      const match = !q || item.dataset.filter.toLowerCase().includes(q);
+      (item.closest('.hf-menu-row') || item).hidden = !match;
+      if (match) shown++;
+    }
+    for (const groupLabel of menu.querySelectorAll('.hf-menu-filter-group')) groupLabel.hidden = !!q;
+    const none = menu.querySelector('.hf-menu-none');
+    if (none) none.hidden = !q || shown > 0;
+  }
+
+  // focusIndex: of focusables(menu); null focuses the search box, or else the first item.
+  function openMenu(anchor, build, align, focusIndex = null) {
     const menu = el('div', 'hf-menu');
     menu.setAttribute('role', 'menu');
+    let searchBox = null;
     build({
+      // opts: { disabled, icon, lead (node), checked, current, title, hint (quiet text at the end),
+      //         filter (search text), side: { icon, label, on, onClick } (a small button at the end of the row) }
       add: (text, onClick, opts = {}) => {
         const item = el('button', 'hf-menu-item');
         const checkable = opts.checked !== undefined;
         item.type = 'button';
         item.setAttribute('role', checkable ? 'menuitemcheckbox' : 'menuitem');
         item.disabled = !!opts.disabled;
-        if (opts.icon) item.appendChild(icon(opts.icon));
+        if (opts.title) item.title = opts.title;
+        if (opts.filter) item.dataset.filter = opts.filter;
+        if (opts.current) item.classList.add('hf-current');
+        if (opts.lead) item.appendChild(el('span', 'hf-menu-lead')).appendChild(opts.lead);
+        else if (opts.icon) item.appendChild(icon(opts.icon));
         item.appendChild(el('span', 'hf-menu-text', text));
+        if (opts.hint) item.appendChild(el('span', 'hf-menu-hint', opts.hint));
         if (checkable) {
           item.setAttribute('aria-checked', String(!!opts.checked));
           const check = icon('check');
           check.classList.add('hf-menu-check');
           item.appendChild(check);
         }
-        item.addEventListener('click', () => {
+        item.addEventListener('click', e => {
           if (!checkable) closeMenu();
-          if (onClick) onClick();
+          if (onClick) onClick(e);
         });
-        menu.appendChild(item);
+        if (!opts.side) {
+          menu.appendChild(item);
+          return;
+        }
+        const row = el('div', 'hf-menu-row');
+        const side = el('button', 'hf-menu-side');
+        side.type = 'button';
+        side.title = opts.side.label;
+        side.setAttribute('aria-label', opts.side.label + ': ' + text);
+        side.setAttribute('aria-pressed', String(!!opts.side.on));
+        side.appendChild(icon(opts.side.icon));
+        side.tabIndex = -1;
+        side.addEventListener('click', opts.side.onClick);
+        row.append(item, side);
+        menu.appendChild(row);
       },
-      label: text => menu.appendChild(el('div', 'hf-menu-label', text)),
+      label: (text, opts = {}) => menu.appendChild(el('div', 'hf-menu-label' + (opts.filterGroup ? ' hf-menu-filter-group' : ''), text)),
       separator: () => menu.appendChild(el('div', 'hf-menu-separator')),
+      search: placeholder => {
+        const box = el('label', 'hf-menu-search-box');
+        searchBox = el('input', 'hf-menu-search');
+        searchBox.type = 'search';
+        searchBox.placeholder = placeholder;
+        searchBox.spellcheck = false;
+        searchBox.setAttribute('aria-label', placeholder);
+        searchBox.value = chrome.menuQuery;
+        searchBox.addEventListener('input', () => {
+          chrome.menuQuery = searchBox.value;
+          filterMenu(menu, searchBox.value);
+        });
+        searchBox.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const first = items().find(i => i.dataset.filter);
+          if (first) first.click();
+        });
+        box.append(icon('search'), searchBox);
+        menu.append(box, el('div', 'hf-menu-label hf-menu-none', 'No matching projects'));
+      },
     });
+    if (searchBox) filterMenu(menu, searchBox.value);
 
     const box = anchor.getBoundingClientRect();
     menu.style.top = Math.round(box.bottom + 4) + 'px';
@@ -892,8 +1097,12 @@
     anchor.classList.add('hf-open');
     document.body.classList.add('hf-menu-open');
 
-    const items = () => [...menu.querySelectorAll('.hf-menu-item:not(:disabled)')];
+    const items = () => [...menu.querySelectorAll('.hf-menu-item:not(:disabled)')].filter(i => !i.closest('[hidden]'));
+    // Up and Down move between items; Right reaches a row's pin and Left goes back; P toggles it.
     const onKey = e => {
+      const active = document.activeElement;
+      const row = active && active.closest && active.closest('.hf-menu-row');
+      const inSearch = active === searchBox;
       if (e.key === 'Escape') {
         e.preventDefault();
         closeMenu();
@@ -901,9 +1110,19 @@
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const list = items();
-        const i = list.indexOf(document.activeElement);
-        const next = e.key === 'ArrowDown' ? i + 1 : i - 1;
-        list[(next + list.length) % list.length].focus();
+        const from = row ? row.querySelector('.hf-menu-item') : active;
+        const i = list.indexOf(from);
+        const next = e.key === 'ArrowDown' ? i + 1 : (i < 0 ? 0 : i) - 1;
+        if (list.length) list[(next + list.length) % list.length].focus();
+      } else if (row && !inSearch && e.key === 'ArrowRight') {
+        e.preventDefault();
+        row.querySelector('.hf-menu-side').focus();
+      } else if (row && !inSearch && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        row.querySelector('.hf-menu-item').focus();
+      } else if (row && !inSearch && (e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        row.querySelector('.hf-menu-side').click();
       }
     };
     const onDown = e => {
@@ -923,7 +1142,7 @@
         window.removeEventListener('blur', closeMenu);
       },
     };
-    const target = items()[focusIndex] || items()[0];
+    const target = focusIndex === null ? searchBox || items()[0] : focusables(menu)[focusIndex] || items()[0];
     if (target) target.focus();
   }
 

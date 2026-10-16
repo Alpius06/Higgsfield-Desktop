@@ -21,6 +21,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>
           <span>Downloads</span>
         </button>
+        <button class="nav-item" type="button" data-section="projects">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5h16v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 10.5L3.4 7.7a1.5 1.5 0 0 1 1.2-1.8l12.6-2.5a1.5 1.5 0 0 1 1.8 1.2l.5 2.4z"/><path d="M8.3 5.2l2.2 3.9M13.2 4.2l2.2 3.9"/></svg>
+          <span>Projects</span>
+        </button>
         <button class="nav-item" type="button" data-section="workspaces">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M11 4.5v15M11 12h9.5"/></svg>
           <span>Workspaces</span>
@@ -141,9 +145,16 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <section class="page" data-section="projects" hidden>
+        <header class="page-header">
+          <h1>Projects</h1>
+          <p class="page-desc">Every project you open in Cinema Studio is listed here and in the toolbar's
+            <strong>Projects ▾</strong> menu. Pin one to give it its own toolbar button. Files you download from a tab
+            inside a project are saved in that project's own folder.</p>
+        </header>
         <h2 class="section-label" id="pj-head">Cinema Studio projects</h2>
-        <p class="group-desc">When a tab is inside a Cinema Studio project, files you download from it are saved in
-          that project's own folder.</p>
         <div class="card pj-list" id="pj-list" role="list" aria-labelledby="pj-head"></div>
         <div class="empty-note" id="pj-empty" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5h16v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 10.5L3.4 7.7a1.5 1.5 0 0 1 1.2-1.8l12.6-2.5a1.5 1.5 0 0 1 1.8 1.2l.5 2.4z"/><path d="M8.3 5.2l2.2 3.9M13.2 4.2l2.2 3.9"/></svg>
@@ -201,6 +212,7 @@
 
   <script src="../../shared/keys.js"></script>
   <script src="../../shared/actions.js"></script>
+  <script src="../../shared/badge.js"></script>
   <script src="settings.js"></script>
 </body>
 </html>

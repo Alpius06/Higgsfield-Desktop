@@ -48,7 +48,7 @@ Your login is kept between launches. Each version's changes are in the [changelo
 
 ## The window
 
-- **Toolbar** — one thin row, left to right: your **section buttons**, the **Cinema Studio project** you're in (if any), how many **generations are running**, the **last file you saved**, **Workspace ▾**, and a **padlock** that locks the layout.
+- **Toolbar** — one thin row, left to right: your **section buttons**, **Projects ▾** (named after the Cinema Studio project you're in, if any), your **pinned projects**, how many **generations are running**, the **last file you saved**, **Workspace ▾**, and a **padlock** that locks the layout.
 - **Tab bar** — below the toolbar; each group of tabs has its own Back, Forward and Reload buttons.
 - **The site** — everything else is Higgsfield.
 - **Menus** — File, Edit, View, Tabs and Workspaces.
@@ -98,11 +98,12 @@ A workspace is a named snapshot of your tabs and splits.
 
 - **The Download button.** Press Download on Higgsfield and the file saves straight to `Downloads\Higgsfield`, no Save dialog. Nothing is ever overwritten — a second `image.png` becomes `image (1).png`. The app never downloads on its own unless you turn on *Download finished generations* (below).
 - **Project folders.** When a tab is inside a **Cinema Studio project**, its downloads go into a folder named after the project — e.g. `Downloads\Higgsfield\Nike spot\`. Detected automatically; nothing to set up.
-- **Project chip.** When you're in a project, the toolbar shows its name — click to open its folder, rename it, or jump to a recent project.
+- **Projects ▾.** Every Cinema Studio project you've opened in the app, under its real Higgsfield name and a lettered badge in its colour: pinned first, then yours, then ones shared with you. Click one to jump straight into it (Ctrl+click: new tab); search once the list grows. Inside a project, the button shows its name and also opens its folder or renames it.
+- **Pinned projects.** Click the pin next to a project in the Projects menu (or press **P** on it), or use Settings → Projects, and it gets its own toolbar button. The one you're in is underlined in its colour. Right-click a pinned button to move it left or right, open its folder or unpin it. If the toolbar runs out of room, the last ones move into the Projects menu (the button shows **+2** and so on).
 - **Settings → Downloads** lets you:
   - change the main download folder, or have the Download button ask where each file goes;
   - turn on **Download finished generations** — *off by default*, since it saves every result including ones you'd throw away. When on, each image or video you generate is saved to its tab's folder the moment it's ready. Failed generations are never saved.
-  - review every Cinema Studio project the app has seen, and give one a different folder, rename it, or forget it (forgetting deletes nothing on Higgsfield or disk).
+- **Settings → Projects** lists every Cinema Studio project the app has seen. Pin one, give it a different folder, rename its folder, or forget it (forgetting deletes nothing on Higgsfield or disk).
 - **Saved notice.** A small toast appears on each save, with a **Show in folder** button.
 - **Right-click an image or video** for **Save Image / Video** (to the right folder) or **Save … As…** (choose where).
 
@@ -196,7 +197,8 @@ src/main/settings.js        Settings store (settings.json)
 src/main/store.js           Reading and writing the JSON files in the profile folder
 src/main/hotkeys.js         App shortcuts (before-input-event on every tab) and the global shortcut
 src/main/downloads.js       Where each download goes, Save without asking, unique file names, taskbar progress
-src/main/projects.js        Cinema Studio project detection and project folders
+src/main/projects.js        Cinema Studio projects: detection, real names, pinning, project folders
+src/main/folders.js         Reads project names, owners and ids from Higgsfield's API responses in each tab
 src/main/workspaces.js      Saved workspaces
 src/main/viewport.js        Per-tab desktop-width layout and zoom (CDP device-metrics emulation)
 src/main/notify.js          Generation-finished detection, Windows notifications, finished files for auto-download
@@ -205,7 +207,8 @@ src/main/tray.js            Tray icon and close-to-tray
 src/main/menu.js            Menu bar
 src/shared/actions.js       Which addresses are Higgsfield, its sections, every action and its default shortcut
 src/shared/keys.js          Shortcut parsing, display and validation (main + pages)
-src/renderer/shell/         Toolbar (section buttons, project chip, workspaces), tabs and docking (dockview-core, one <webview> per tab)
+src/shared/badge.js         A project's lettered badge: initials and colour (toolbar and Settings)
+src/renderer/shell/         Toolbar (section buttons, Projects menu, pinned projects, workspaces), tabs and docking (dockview-core, one <webview> per tab)
 src/renderer/settings/      Settings window
 src/preload/                Bridges between those pages and the main process
 build/icon.png              App icon
@@ -217,7 +220,7 @@ build/icon.png              App icon
 - **Generation alerts.** From Higgsfield's job-status event stream (`fnf-notification/notifications/stream`, event `job:status_changed`) and its `jobs/status-batch` poll, applying the site's own "finished" rule: `completed` once the IP check is done; `failed`, `nsfw`, `ip_detected`.
 - **Download finished generations.** When a job the app saw start finishes as `completed`, its full-size file (`results.raw.url`, the same one the site's Download button fetches) is saved through the tab that started it.
 - **Google sign-in.** A tab heading to `accounts.google.com` is stopped and email sign-in offered instead. Google blocks account sign-in in embedded browsers, and Higgsfield's sign-in service (Clerk) binds a login to the browser that created it, so a copied login is rejected — an official desktop sign-in has to come from Higgsfield.
-- **Cinema Studio projects.** Recognised from the tab's address: `/generate?projectId=<id>` or `/generate/@user/<project>`.
+- **Cinema Studio projects.** Recognised from the tab's address: `/generate?projectId=<id>` or `/generate/@user/<project>`. Higgsfield calls projects folders; opening one fetches `fnf/generate/<user>/<project>`, whose response gives its id, real name and owner, and the lists `fnf/folders/accessible` and `fnf/folders/pinned` refresh the projects already known. These are read from each tab's traffic, the same way as generation alerts; the app makes no requests of its own.
 
 ## License
 

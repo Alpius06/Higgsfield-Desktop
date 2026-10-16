@@ -9,6 +9,7 @@ const notify = require('./src/main/notify');
 const viewport = require('./src/main/viewport');
 const workspaces = require('./src/main/workspaces');
 const projects = require('./src/main/projects');
+const folders = require('./src/main/folders');
 const menu = require('./src/main/menu');
 const { PARTITION, isSite, SECTIONS, byId } = require('./src/shared/actions');
 
@@ -156,12 +157,13 @@ function showActiveProject() {
   if (key === shownProjectKey) return;
   shownProjectKey = key;
   sendCommand(project
-    ? { type: 'csProject', name: project.name, folder: projects.folderFor(project) }
+    ? { type: 'csProject', key: project.key, name: project.name, folder: projects.folderFor(project) }
     : { type: 'csProject', name: null }, { reveal: false });
 }
 
-function recentProjects() {
-  return projects.list().slice(0, 10).map(({ key, name, url }) => ({ key, name, url }));
+// What the toolbar's Projects menu and pinned project buttons show, most recently used first.
+function menuProjects() {
+  return projects.list().map(({ key, name, url, owner, shared, color, pinned }) => ({ key, name, url, owner, shared, color, pinned }));
 }
 
 // Called whenever a tab changes page.
@@ -200,6 +202,10 @@ function projectOp(op, args) {
     case 'resetFolder': return projects.setFolder(a.key, null);
     case 'openFolder': downloads.openFolder(projects.folderFor(project)); return { ok: true };
     case 'open': sendCommand({ type: 'newTab', url: project.url }); return { ok: true };
+    case 'pin': return projects.setPinned(a.key, true);
+    case 'unpin': return projects.setPinned(a.key, false);
+    case 'moveLeft': return projects.movePinned(a.key, -1);
+    case 'moveRight': return projects.movePinned(a.key, 1);
     case 'forget': return projects.forget(a.key);
     default: return { ok: false, error: 'Unknown project operation.' };
   }
@@ -606,7 +612,7 @@ function handle(allowed, channel, fn) {
 function registerIpc() {
   handle(fromShell, 'shell:get-initial-state', () => ({
     layout: currentLayout,
-    csProjects: recentProjects(),
+    csProjects: menuProjects(),
     workspaces: workspaceSummaries(),
     locked: settings.get().layout.locked,
     quickSections: quickSections(),
@@ -620,9 +626,12 @@ function registerIpc() {
     savedLayoutJson = json;
     store.writeJson(LAYOUT_FILE, layout);
   });
-  on(fromShell, 'shell:project', op => {
-    if (op === 'openFolder') dispatch('openDownloads');
-    else if (op === 'rename') renameActiveProject();
+  on(fromShell, 'shell:project', r => {
+    if (!r) return;
+    if (r.op === 'openFolder' && !r.key) dispatch('openDownloads');
+    else if (r.op === 'rename') renameActiveProject();
+    else if (r.op === 'manage') openSettings('projects');
+    else if (['openFolder', 'pin', 'unpin', 'moveLeft', 'moveRight'].includes(r.op)) projectOp(r.op, { key: r.key });
   });
   on(fromShell, 'shell:viewport', v => {
     if (v && isTab(v.webContentsId)) viewport.update(v.webContentsId, v);
@@ -695,6 +704,7 @@ if (!app.requestSingleInstanceLock()) {
     wirePage(contents);
     hotkeys.attach(contents);
     notify.watch(contents);
+    folders.watch(contents);
     viewport.watch(contents);
   });
 
@@ -765,7 +775,7 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     projects.on('change', list => {
-      sendCommand({ type: 'csProjects', items: recentProjects() }, { reveal: false });
+      sendCommand({ type: 'csProjects', items: menuProjects() }, { reveal: false });
       showActiveProject();
       sendToSettings('settings:projects-changed', list);
     });

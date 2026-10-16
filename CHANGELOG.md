@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.4.0
+
+### New
+
+- **Projects menu.** A **Projects** button now sits in the toolbar all the time, not only while a tab is inside a project. It lists every Cinema Studio project you have opened in the app: pinned ones first, then your own, then projects others shared with you, most recently used first. Click one to go to a tab already inside it, or open it in a new tab; Ctrl+click always opens a new tab. From seven projects on, the menu has a search box.
+- **Pinned project buttons.** The pin on each project in the Projects menu (or press **P** on it), **Pin to toolbar** at the top of the menu while you're in a project, or **Pin to toolbar** in Settings → Projects gives a project its own toolbar button after the section buttons. Pinning leaves the menu open, with every project where it was.
+  - Each project has a lettered badge in its Higgsfield colour, drawn in softer shades of the web's named colours. A project without a colour keeps one of its own. Numbered names get their number, so "New project 3" is **N3**.
+  - The pinned project you're in is underlined in its colour, and the Projects button stops repeating its name.
+  - Right-click a pinned button to open it in a new tab, open its folder, move it left or right, or unpin it.
+  - When the toolbar runs out of room, the names go first, then the last pinned buttons, which stay at the top of the Projects menu; the Projects button shows how many, e.g. **+2**.
+- **Settings → Projects.** Projects have their own page in Settings, with the same badges and pin buttons. Long folder paths are shortened at the start, so the project's folder stays in view.
+
+### Fixed
+
+- **Project names.** Projects were named after their web address, so a project called "Overclock" showed up as "Ai film festival" and three different projects as "New project 2/3/4". The app now reads each project's real name, owner and id from Higgsfield when you open it, and the project lists Cinema Studio loads keep the names of projects already in the app up to date. Projects you have not opened in the app are not added.
+- **Renames made on Higgsfield** now reach the app. They were matched by project id, which the app never had for projects opened by their address.
+- A project opened both by its id and by its address is kept as one project.
+- **Shared projects** are listed under *Shared with you* as soon as the app has seen one of your own projects, instead of waiting for Higgsfield to describe each one.
+- The toolbar status no longer runs into the Workspace button in a narrow window.
+
 ## 2.3.0
 
 ### Changed

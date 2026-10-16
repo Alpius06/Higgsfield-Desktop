@@ -1,4 +1,4 @@
-// Settings window: General, Downloads (with Cinema Studio project folders), Workspaces and the Hotkeys editor.
+// Settings window: General, Downloads, Cinema Studio projects, Workspaces and the Hotkeys editor.
 // The main process owns the settings; this page only renders what it sends back.
 (function () {
   'use strict';
@@ -6,7 +6,7 @@
   const api = window.settingsApi;
   const Keys = window.HFKeys;
   const { ACTIONS: actions, byId } = window.HFActions;
-  const SECTIONS = ['general', 'downloads', 'workspaces', 'hotkeys'];
+  const SECTIONS = ['general', 'downloads', 'projects', 'workspaces', 'hotkeys'];
   const MODIFIER_LABELS = [['ctrlKey', 'Ctrl'], ['altKey', 'Alt'], ['shiftKey', 'Shift'], ['metaKey', 'Win']];
   // Keys that only change what the next key means; pressing them alone must not end recording.
   const NON_KEYS = new Set(['Control', 'Alt', 'AltGraph', 'Shift', 'Meta', 'OS', 'Super', 'Hyper',
@@ -499,11 +499,7 @@
     rename: [['path', { d: 'M5 19h3.5L18.2 9.3a2.1 2.1 0 0 0-3-3L5.5 16v3z' }], ['path', { d: 'M13.5 8l3 3' }]],
     del: [['path', { d: 'M5 7h14M10 7V5h4v2M7 7l.8 12h8.4L17 7' }], ['path', { d: 'M10.5 10.5v5.5M13.5 10.5v5.5' }]],
     folder: [['path', { d: 'M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z' }]],
-    clapper: [
-      ['path', { d: 'M4 10.5h16v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z' }],
-      ['path', { d: 'M4 10.5L3.4 7.7a1.5 1.5 0 0 1 1.2-1.8l12.6-2.5a1.5 1.5 0 0 1 1.8 1.2l.5 2.4z' }],
-      ['path', { d: 'M8.3 5.2l2.2 3.9M13.2 4.2l2.2 3.9' }],
-    ],
+    pin: [['path', { d: 'M9 4h6M10 4v5l-3 4h10l-3-4V4' }], ['path', { d: 'M12 13v7' }]],
   };
 
   function iconButton(className, label, icon) {
@@ -682,8 +678,9 @@
     return { start, end, commit, wire };
   }
 
-  // ---- Cinema Studio projects (Downloads page) ----
-  // The main process finds them from tab URLs. Here the user can rename the folder, move it, or forget one.
+  // ---- Cinema Studio projects (Projects page) ----
+  // The main process finds them from tab URLs. Here the user can pin one to the toolbar, rename the folder,
+  // move it, or forget one.
 
   let projects = []; // most recently used first
   const pjRows = new Map(); // project key -> row elements + { editing, saving, errorText }
@@ -717,23 +714,28 @@
     row.setAttribute('role', 'listitem');
 
     const head = el('div', 'pj-head');
-    const icon = svg(ICONS.clapper);
-    icon.classList.add('pj-icon');
+    const icon = el('i', 'pj-badge');
+    icon.setAttribute('aria-hidden', 'true');
     const title = el('div', 'pj-title');
     const { nameBtn, editor } = nameParts();
     nameBtn.title = 'Rename the folder (F2)';
     title.append(nameBtn, editor);
+    const pin = el('button', 'btn btn-sm pj-pin');
+    pin.type = 'button';
+    const pinLabel = el('span');
+    pin.append(svg(ICONS.pin), pinLabel);
     const open = el('button', 'btn btn-sm pj-open', 'Open in Cinema Studio');
     open.type = 'button';
-    head.append(icon, title, open);
+    head.append(icon, title, pin, open);
 
     const body = el('div', 'pj-body');
     const hint = el('div', 'pj-rename-hint', 'Only the folder name changes. The project on Higgsfield keeps its name.');
     const meta = el('div', 'pj-meta');
     const used = el('span', 'pj-used');
+    const owner = el('span', 'pj-owner');
     const forget = el('button', 'btn btn-xs btn-ghost pj-forget', 'Forget');
     forget.type = 'button';
-    meta.append(used, forget);
+    meta.append(used, owner, forget);
 
     const folderLine = el('div', 'pj-line');
     const folderPath = el('span', 'pj-path');
@@ -752,10 +754,17 @@
     body.append(hint, meta, folderLine, error);
     row.append(head, body);
 
-    const r = { row, nameBtn, editor, hint, open, used, forget, folderPath, change, reset, openFolder, error,
+    const r = { row, icon, nameBtn, editor, hint, pin, pinLabel, open, used, owner, forget, folderPath, change, reset, openFolder, error,
       editing: false, saving: false, errorText: '' };
 
     pjRename.wire(key, r);
+    pin.addEventListener('click', async () => {
+      const p = pjItem(key);
+      if (!p) return;
+      if (await pjOp(key, p.pinned ? 'unpin' : 'pin', { key })) {
+        announce(p.pinned ? `Unpinned ${p.name} from the toolbar.` : `Pinned ${p.name} to the toolbar.`);
+      }
+    });
     open.addEventListener('click', async () => {
       const name = pjItem(key) && pjItem(key).name;
       if (await pjOp(key, 'open', { key })) announce(`Opened ${name} in Cinema Studio.`);
@@ -784,7 +793,20 @@
     const when = relativeTime(p.lastSeen);
     r.used.textContent = when ? `Used ${when}` : '';
     r.used.title = exactTime(p.lastSeen);
-    r.folderPath.textContent = p.downloadFolder || '';
+    r.owner.textContent = p.shared && p.owner ? `Shared by @${p.owner}` : '';
+    r.owner.hidden = !r.owner.textContent;
+
+    const badge = HFBadge.badge(p);
+    r.icon.textContent = badge.text;
+    r.icon.style.background = badge.bg;
+    r.icon.style.color = badge.fg;
+
+    r.pinLabel.textContent = p.pinned ? 'Unpin' : 'Pin to toolbar';
+    r.pin.classList.toggle('is-on', !!p.pinned);
+    r.pin.setAttribute('aria-pressed', String(!!p.pinned));
+    r.pin.title = p.pinned ? 'Remove its button from the toolbar' : 'Give it its own button on the toolbar';
+    // Shown right to left so a long path is cut at its start and the project's folder stays in view.
+    r.folderPath.textContent = p.downloadFolder ? '\u200e' + p.downloadFolder + '\u200e' : '';
     r.folderPath.title = p.downloadFolder || '';
     r.reset.hidden = !p.customFolder;
 
