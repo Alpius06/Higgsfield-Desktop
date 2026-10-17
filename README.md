@@ -2,11 +2,11 @@
 
 # Higgsfield Desktop
 
-**[higgsfield.ai](https://higgsfield.ai) as a real Windows app** — dockable tabs, saved workspaces, per-project downloads and generation alerts, wrapped around the site you already use.
+**[higgsfield.ai](https://higgsfield.ai) as a real Windows and macOS app** — dockable tabs, saved workspaces, per-project downloads and generation alerts, wrapped around the site you already use.
 
 [![Latest release](https://img.shields.io/github/v/release/badwolf-ro/Higgsfield-Desktop?label=release&color=2ea44f)](https://github.com/badwolf-ro/Higgsfield-Desktop/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/badwolf-ro/Higgsfield-Desktop/total?color=blue)](https://github.com/badwolf-ro/Higgsfield-Desktop/releases)
-![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D6)
 ![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -39,10 +39,20 @@
 <tr><td><code>Higgsfield-Portable-&lt;version&gt;.exe</code></td><td>Runs without installing.</td></tr>
 </table>
 
+On a **Mac**:
+
+<table>
+<tr><th>File</th><th>What it does</th></tr>
+<tr><td><code>Higgsfield-&lt;version&gt;-arm64.dmg</code></td><td>Apple Silicon (M1 and later). Open it and drag Higgsfield to Applications.</td></tr>
+<tr><td><code>Higgsfield-&lt;version&gt;-x64.dmg</code></td><td>Intel Macs.</td></tr>
+</table>
+
 Grab either from the **[Releases page](https://github.com/badwolf-ro/Higgsfield-Desktop/releases/latest)**, or [build them yourself](#development).
 
 > [!NOTE]
 > The app is not code-signed, so the first time you run it Windows SmartScreen shows *"Windows protected your PC"*. Click **More info → Run anyway**.
+>
+> On macOS it is not notarised by Apple, so the first launch is blocked with *"Higgsfield can't be opened"*. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Higgsfield.app` once.
 
 Your login is kept between launches. Each version's changes are in the [changelog](CHANGELOG.md).
 
@@ -156,9 +166,20 @@ Opening a section in a new tab, saving a workspace, locking the layout and openi
 - **In your browser** — links to other sites (Instagram, X, a Discord invite) open in your normal browser.
 - **Google sign-in** — Google doesn't allow signing in to a Google account inside an app like this one, and a login carried over from a real browser is rejected by Higgsfield's sign-in service. So **Continue with Google** shows a short note that it needs official support from Higgsfield, with a **Sign in with email** button that opens Higgsfield's own email login in the tab. Email uses the **same account** as Google.
 
+## On a Mac
+
+The app works the same way on macOS, with Mac conventions where they differ:
+
+- **Shortcuts use ⌘** in place of Ctrl: ⌘T, ⌘W, ⇧⌘T, ⌘R / ⇧⌘R, ⌘= / ⌘- / ⌘0, ⌘, for Settings. Back and forward are **⌘[** and **⌘]** (⌥← and ⌥→ move by word in text), splits are **⌥⌘→** and **⌥⌘↓**, full screen is **⌃⌘F**, the downloads folder **⌥⌘L**, developer tools **⌥⌘I**, and **⌃⌥H** shows or hides Higgsfield from any app. Next and previous tab stay **⌃⇥** and **⌃⇧⇥**.
+- **⌘-click** a section or project button to open it in a new tab.
+- **The toolbar is the title bar** — the red, yellow and green buttons sit at its left; drag any empty part of it to move the window.
+- **No tray icon.** Closing the window keeps Higgsfield running in the Dock, so renders finish and alerts still arrive; click the Dock icon to bring it back and **⌘Q** to quit. The Dock icon shows how many generations are running and bounces when one finishes while you're elsewhere.
+- **Settings, Hotkeys and Quit** are in the **Higgsfield** menu.
+- Files go to `~/Downloads/Higgsfield`, and everything else to `~/Library/Application Support/Higgsfield`.
+
 ## Where your data lives
 
-Everything sits in `%APPDATA%\Higgsfield`:
+Everything sits in `%APPDATA%\Higgsfield` (on a Mac, `~/Library/Application Support/Higgsfield`):
 
 | File | Contents |
 |---|---|
@@ -173,7 +194,7 @@ Deleting the folder resets the app completely.
 
 ## Development
 
-Requires **Node.js 20+** on Windows.
+Requires **Node.js 20+** on Windows or macOS.
 
 ```bat
 npm install
@@ -181,6 +202,8 @@ npx install-electron   :: Electron 44 downloads its binary on first use; this fe
 npm start              :: run from source
 npm run dist           :: build the installer and portable exe into dist\
 ```
+
+On a Mac the same `npm install` and `npm start` work; `npm run dist:mac` builds an ad-hoc signed `.dmg` and `.zip` for Apple Silicon and Intel into `dist/`. A Windows build has to be made on Windows, and a Mac build on a Mac.
 
 Run against a separate, clean profile (handy next to your everyday app) by setting `HIGGSFIELD_PROFILE` first:
 
@@ -212,6 +235,7 @@ src/renderer/shell/         Toolbar (section buttons, Projects menu, pinned proj
 src/renderer/settings/      Settings window
 src/preload/                Bridges between those pages and the main process
 build/icon.png              App icon
+build/icon-mac.png          App icon on the macOS grid (1024 px, padded, with its shadow)
 ```
 
 - **Tabs.** Each tab is a `<webview>`; all share the `persist:higgsfield` session, so they share one login.

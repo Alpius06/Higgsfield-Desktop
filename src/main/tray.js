@@ -1,5 +1,6 @@
 // System tray icon. Closing the window hides to the tray (when enabled) rather
 // than quitting, so the site's session and any running generations stay alive.
+// macOS has no tray icon: a closed window stays in the Dock, whose icon brings it back.
 const { Tray, Menu, nativeImage } = require('electron');
 
 let tray = null;
@@ -25,6 +26,7 @@ function toggleWindow() {
 // opts: { settings, icon, getWindow(), onNewTab(), onOpenDownloads(), onQuit() }
 function init(opts) {
   ({ settings, getWindow } = opts);
+  if (process.platform === 'darwin') return;
 
   const image = nativeImage.createFromPath(opts.icon).resize({ width: 32, height: 32, quality: 'best' });
   tray = new Tray(image);
@@ -45,7 +47,15 @@ function handleClose(event) {
 
   event.preventDefault();
   const win = getWindow();
-  if (win && !win.isDestroyed()) win.hide();
+  if (win && !win.isDestroyed()) {
+    // A full-screen window hidden on macOS leaves an empty black Space behind.
+    if (win.isFullScreen()) {
+      win.once('leave-full-screen', () => win.hide());
+      win.setFullScreen(false);
+    } else {
+      win.hide();
+    }
+  }
 
   if (!s.tray.hintShown) {
     if (tray && process.platform === 'win32') {

@@ -7,14 +7,30 @@
   const Keys = window.HFKeys;
   const { ACTIONS: actions, byId } = window.HFActions;
   const SECTIONS = ['general', 'downloads', 'projects', 'workspaces', 'hotkeys'];
-  const MODIFIER_LABELS = [['ctrlKey', 'Ctrl'], ['altKey', 'Alt'], ['shiftKey', 'Shift'], ['metaKey', 'Win']];
+  const MODIFIER_LABELS = Keys.IS_MAC
+    ? [['ctrlKey', '⌃'], ['altKey', '⌥'], ['shiftKey', '⇧'], ['metaKey', '⌘']]
+    : [['ctrlKey', 'Ctrl'], ['altKey', 'Alt'], ['shiftKey', 'Shift'], ['metaKey', 'Win']];
   // Keys that only change what the next key means; pressing them alone must not end recording.
   const NON_KEYS = new Set(['Control', 'Alt', 'AltGraph', 'Shift', 'Meta', 'OS', 'Super', 'Hyper',
     'Fn', 'FnLock', 'CapsLock', 'NumLock', 'ScrollLock', 'Symbol', 'SymbolLock']);
   const GROUP_NOTES = {
     'Open in new tab': 'Open a part of Higgsfield in a new tab. None are set until you add one.',
-    'From any app': 'Registered with Windows, so these work even while another app is in front.',
+    'From any app': `Registered with ${Keys.IS_MAC ? 'macOS' : 'Windows'}, so these work even while another app is in front.`,
   };
+
+  // Wording for macOS: the Dock instead of the tray and taskbar, Finder instead of Explorer.
+  function adaptToMac() {
+    if (!Keys.IS_MAC) return;
+    const text = (sel, value) => { const node = $(sel); if (node) node.textContent = value; };
+    text('#t-tray', 'Keep running when the window is closed');
+    text('#d-tray', 'Closing the window leaves Higgsfield in the Dock, so generations still finish and '
+      + 'alerts still arrive. Click its Dock icon to bring it back; quit with ⌘Q.');
+    const menuRow = $('[data-setting="menuBar.autoHide"]');
+    if (menuRow) menuRow.closest('.row').hidden = true;
+    text('#d-notify', 'Shows a macOS notification when an image or video is ready.');
+    text('#t-flash', 'Bounce the Dock icon');
+    text('#open-folder', 'Show in Finder');
+  }
 
   let settings = null;
   let recording = null; // { id, mods: [], rejected: '', busy }
@@ -481,11 +497,11 @@
       if (recording && !rows.get(recording.id).row.contains(e.target)) finishRecording();
     }, true);
 
-    // Ctrl+F or / jumps to the search box on the Hotkeys page.
+    // Ctrl+F (⌘F on macOS) or / jumps to the search box on the Hotkeys page.
     document.addEventListener('keydown', e => {
       if (recording || currentSection() !== 'hotkeys') return;
       const typing = e.target instanceof HTMLInputElement && e.target.type !== 'checkbox';
-      const find = (e.ctrlKey && e.code === 'KeyF') || (e.key === '/' && !typing);
+      const find = ((Keys.IS_MAC ? e.metaKey : e.ctrlKey) && e.code === 'KeyF') || (e.key === '/' && !typing);
       if (!find) return;
       e.preventDefault();
       search.focus();
@@ -745,7 +761,7 @@
     const reset = el('button', 'btn btn-xs btn-ghost pj-reset-folder', 'Reset');
     reset.type = 'button';
     reset.title = 'Use the folder named after the project again';
-    const openFolder = el('button', 'btn btn-xs pj-open-folder', 'Open folder');
+    const openFolder = el('button', 'btn btn-xs pj-open-folder', Keys.IS_MAC ? 'Show in Finder' : 'Open folder');
     openFolder.type = 'button';
     actions.append(change, reset, openFolder);
     folderLine.append(svg(ICONS.folder), folderPath, actions);
@@ -1008,6 +1024,7 @@
   }
 
   async function init() {
+    adaptToMac();
     initNav();
     showSection(new URLSearchParams(location.search).get('section') || 'general');
     api.onShowSection(section => showSection(section));

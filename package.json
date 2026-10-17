@@ -2,7 +2,7 @@
   "name": "higgsfield-desktop",
   "productName": "Higgsfield",
   "version": "2.4.1",
-  "description": "Windows desktop app for higgsfield.ai: dockable tabs, workspaces, Cinema Studio project folders and generation alerts",
+  "description": "Desktop app for higgsfield.ai on Windows and macOS: dockable tabs, workspaces, Cinema Studio project folders and generation alerts",
   "author": "Radu@BadWolf <contact@badwolf.ro>",
   "license": "MIT",
   "repository": {
@@ -14,7 +14,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
   },
   "build": {
     "appId": "ro.badwolf.higgsfield",
@@ -22,7 +23,8 @@
     "files": [
       "main.js",
       "src/**/*",
-      "build/icon.png"
+      "build/icon.png",
+      "build/icon-mac.png"
     ],
     "directories": {
       "output": "dist"
@@ -43,6 +45,38 @@
     },
     "portable": {
       "artifactName": "Higgsfield-Portable-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon-mac.png",
+      "category": "public.app-category.graphics-design",
+      "darkModeSupport": true,
+      "minimumSystemVersion": "12.0",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Higgsfield pages can use your camera when you choose to record or upload from it.",
+        "NSMicrophoneUsageDescription": "Higgsfield pages can use your microphone when you choose to record audio."
+      },
+      "artifactName": "Higgsfield-${version}-${arch}-mac.${ext}"
+    },
+    "dmg": {
+      "artifactName": "Higgsfield-${version}-${arch}.${ext}"
     }
   },
   "devDependencies": {

@@ -8,6 +8,11 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.HFKeys = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
+  const IS_MAC = typeof process !== 'undefined' && process.platform
+    ? process.platform === 'darwin'
+    : typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+
+  // Also the order macOS lists modifiers in: Control, Option, Shift, Command.
   const MODIFIERS = ['Ctrl', 'Alt', 'Shift', 'Super'];
 
   const MODIFIER_ALIASES = {
@@ -34,9 +39,22 @@
     Super: 'Win', Left: '←', Right: '→', Up: '↑', Down: '↓',
     numadd: 'Num +', numsub: 'Num −', nummult: 'Num *', numdiv: 'Num /', numdec: 'Num .',
   };
+  if (IS_MAC) {
+    Object.assign(KEY_LABELS, {
+      Ctrl: '⌃', Alt: '⌥', Shift: '⇧', Super: '⌘',
+      Enter: '↩', Backspace: '⌫', Delete: '⌦', Esc: '⎋', Tab: '⇥', PageUp: '⇞', PageDown: '⇟', Home: '↖', End: '↘',
+    });
+  }
 
-  // Shortcuts that would break copy, paste and undo inside the site.
-  const RESERVED = ['Ctrl+A', 'Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Y', 'Ctrl+Z', 'Ctrl+Shift+Z', 'Ctrl+Shift+V'];
+  // Modifiers that make a key a command rather than typing, as named in messages.
+  const COMMAND_MODIFIERS = IS_MAC ? '⌘, ⌃ or ⌥' : 'Ctrl, Alt or Win';
+
+  // Shortcuts that would break copy, paste and undo inside the site, and on macOS
+  // the ones every app leaves to the system (Quit, Hide, Minimise, switch windows).
+  const RESERVED = IS_MAC
+    ? ['Super+A', 'Super+C', 'Super+V', 'Super+X', 'Super+Z', 'Shift+Super+Z', 'Alt+Shift+Super+V',
+      'Super+Q', 'Super+H', 'Alt+Super+H', 'Super+M', 'Super+`', 'Super+Tab', 'Super+Space']
+    : ['Ctrl+A', 'Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Y', 'Ctrl+Z', 'Ctrl+Shift+Z', 'Ctrl+Shift+V'];
 
   // KeyboardEvent.code -> accelerator key, or null for modifier-only and unknown keys.
   function keyFromCode(code) {
@@ -107,9 +125,9 @@
     return canonical ? canonical.split('+').map(p => KEY_LABELS[p] || p) : [];
   }
 
-  // "Ctrl+Shift+Left" -> "Ctrl + Shift + ←"
+  // "Ctrl+Shift+Left" -> "Ctrl + Shift + ←", and on macOS "Shift+Super+Left" -> "⇧⌘←"
   function display(accel) {
-    return parts(accel).join(' + ');
+    return parts(accel).join(IS_MAC ? '' : ' + ');
   }
 
   // Returns an error message, or null when the shortcut is usable.
@@ -122,13 +140,19 @@
     const mods = parts.slice(0, -1);
     const hasCommandModifier = mods.some(m => m === 'Ctrl' || m === 'Alt' || m === 'Super');
     const isFunctionKey = /^F\d+$/.test(key);
-    if (RESERVED.includes(canonical)) return 'Reserved for copy, paste and undo.';
-    if (global && !hasCommandModifier) return 'App-wide shortcuts need Ctrl, Alt or Win.';
+    if (RESERVED.includes(canonical)) {
+      return IS_MAC ? 'Reserved for editing or by macOS.' : 'Reserved for copy, paste and undo.';
+    }
+    if (global && !hasCommandModifier) return `App-wide shortcuts need ${COMMAND_MODIFIERS}.`;
     if (!global && !hasCommandModifier && !isFunctionKey) {
-      return 'Add Ctrl, Alt or Win so the shortcut does not interfere with typing.';
+      return `Add ${COMMAND_MODIFIERS} so the shortcut does not interfere with typing.`;
+    }
+    // On macOS Option with a character key types a special character (⌥T is †).
+    if (IS_MAC && !global && key.length === 1 && !mods.some(m => m === 'Ctrl' || m === 'Super')) {
+      return 'Add ⌘ or ⌃: with only ⌥ the key types a special character.';
     }
     return null;
   }
 
-  return { fromInput, fromKeyboardEvent, normalize, parts, display, validate };
+  return { IS_MAC, fromInput, fromKeyboardEvent, normalize, parts, display, validate };
 });

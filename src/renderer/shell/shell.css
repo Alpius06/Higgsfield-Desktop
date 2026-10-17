@@ -19,7 +19,7 @@ html, body {
   overflow: hidden;
   background: var(--hf-bg);
   color: var(--hf-text);
-  font: 13px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font: 13px/1.4 "Segoe UI Variable Text", "Segoe UI", -apple-system, system-ui, sans-serif;
 }
 
 body {
@@ -219,6 +219,25 @@ button {
 
 .hf-toolbar-spacer {
   flex: 1 1 auto;
+}
+
+/* macOS: the toolbar is the title bar. The window buttons sit at its left and
+   any part of it that is not a control drags the window. */
+.hf-mac #toolbar {
+  padding-left: 80px;
+  -webkit-app-region: drag;
+}
+
+.hf-mac.hf-fullscreen #toolbar {
+  padding-left: 8px;
+}
+
+.hf-mac #toolbar button,
+.hf-mac #toolbar input,
+.hf-mac #toolbar a,
+.hf-mac .hf-menu,
+.hf-mac .hf-modal-backdrop {
+  -webkit-app-region: no-drag;
 }
 
 .hf-tool-button {

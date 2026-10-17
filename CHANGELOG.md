@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- **macOS version.** Higgsfield Desktop now runs and builds on macOS (Apple Silicon and Intel), with the conventions a Mac app is expected to have:
+  - The toolbar is the title bar: the window buttons sit at its left, and dragging any empty part of it moves the window.
+  - A **Higgsfield** app menu with About, Settings (⌘,), Hotkeys, Hide and Quit, and a **Window** menu.
+  - Default shortcuts use ⌘: ⌘T, ⌘W, ⇧⌘T, ⌘[ / ⌘] for back and forward, ⌘R, ⌥⌘→ / ⌥⌘↓ to split, ⌃⌘F for full screen, ⌥⌘L for the downloads folder; ⌃⌥H shows or hides the app from anywhere. The Hotkeys page shows them with Mac symbols and refuses ones macOS keeps for itself (⌘Q, ⌘H, ⌘M…) or that would type a character (⌥ with a letter).
+  - ⌘-click opens a section or project in a new tab (Ctrl+click is a right-click on a Mac).
+  - Closing the window keeps the app running in the Dock instead of a tray icon; the Dock icon brings it back, and right-clicking it offers New Tab and Open Downloads Folder. The Dock icon shows how many generations are running and bounces when one finishes in the background.
+  - Downloads, notifications and "Show in Finder" use the Mac's own wording and places; data lives in `~/Library/Application Support/Higgsfield`.
+  - `npm run dist:mac` builds a `.dmg` and `.zip` for each architecture, ad-hoc signed.
+
 ## 2.4.1
 
 ### Changed

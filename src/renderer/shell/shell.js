@@ -13,7 +13,11 @@
   const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
   // main refuses to attach a webview to anything but a Higgsfield page, so never hand one another src.
-  const { HOME, PARTITION, SECTIONS, isSite } = window.HFActions;
+  const { IS_MAC, HOME, PARTITION, SECTIONS, isSite } = window.HFActions;
+  // Ctrl+click is a right-click on macOS, so ⌘-click opens a new tab there.
+  const NEW_TAB_CLICK = IS_MAC ? '⌘-click' : 'Ctrl+click';
+  const wantsNewTab = e => (IS_MAC ? e.metaKey : e.ctrlKey);
+  const SHOW_IN_FOLDER = IS_MAC ? 'Show in Finder' : 'Show in folder';
 
   let api = null;
   let restoring = false; // panels disposed while rebuilding are not user closes
@@ -758,9 +762,9 @@
     chrome.quick = Array.isArray(ids) ? ids : [];
     const buttons = SECTIONS.filter(s => chrome.quick.includes(s.id)).map(section => {
       const button = toolButton('hf-quick-button', [icon(section.id), el('span', null, section.label)], section.label);
-      button.title = section.label + ' (Ctrl+click: new tab)';
+      button.title = section.label + ' (' + NEW_TAB_CLICK + ': new tab)';
       button.dataset.section = section.id;
-      button.addEventListener('click', e => openSection(section, e.ctrlKey));
+      button.addEventListener('click', e => openSection(section, wantsNewTab(e)));
       button.addEventListener('auxclick', e => { if (e.button === 1) openSection(section, true); });
       return button;
     });
@@ -846,8 +850,8 @@
     const button = toolButton('hf-quick-button hf-pinned-project', [badge, el('span', null, project.name)], projectTitle(project));
     button.dataset.key = project.key;
     button.style.setProperty('--hf-badge', badge.style.getPropertyValue('--hf-badge'));
-    button.title = projectTitle(project) + '\nCtrl+click: new tab · Right-click: more';
-    button.addEventListener('click', e => openProject(project, e.ctrlKey));
+    button.title = projectTitle(project) + '\n' + NEW_TAB_CLICK + ': new tab · Right-click: more';
+    button.addEventListener('click', e => openProject(project, wantsNewTab(e)));
     button.addEventListener('auxclick', e => { if (e.button === 1) openProject(project, true); });
     button.addEventListener('contextmenu', e => {
       e.preventDefault();
@@ -905,7 +909,7 @@
     const button = chrome.lastFile;
     button.hidden = false;
     button.replaceChildren(icon('download'), el('span', null, baseName(filePath)));
-    button.title = 'Show ' + baseName(filePath) + ' in folder';
+    button.title = 'Show ' + baseName(filePath) + (IS_MAC ? ' in Finder' : ' in folder');
     fitToolbar();
   }
 
@@ -961,10 +965,10 @@
       if (!list.length) continue;
       label(title, { filterGroup: true });
       for (const p of list) {
-        add(p.name, e => openProject(p, e.ctrlKey), {
+        add(p.name, e => openProject(p, wantsNewTab(e)), {
           lead: projectBadge(p),
           hint: p.shared && p.owner ? '@' + p.owner : '',
-          title: projectTitle(p) + '\nCtrl+click: new tab · P: pin',
+          title: projectTitle(p) + '\n' + NEW_TAB_CLICK + ': new tab · P: pin',
           current: !!chrome.csProject && chrome.csProject.key === p.key,
           filter: p.name + ' ' + (p.owner || ''),
           side: {
@@ -1122,7 +1126,7 @@
       } else if (row && !inSearch && e.key === 'ArrowLeft') {
         e.preventDefault();
         row.querySelector('.hf-menu-item').focus();
-      } else if (row && !inSearch && (e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.altKey) {
+      } else if (row && !inSearch && (e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         row.querySelector('.hf-menu-side').click();
       }
@@ -1177,7 +1181,7 @@
       setTimeout(() => item.remove(), 200);
     };
     if (filePath) {
-      const show = el('button', 'hf-toast-action', 'Show in folder');
+      const show = el('button', 'hf-toast-action', SHOW_IN_FOLDER);
       show.type = 'button';
       show.addEventListener('click', () => { hf.showInFolder(filePath); dismiss(); });
       item.appendChild(show);
@@ -1327,6 +1331,7 @@
       refreshUi();
     },
     status: c => setGenerating(c.generating),
+    fullScreen: c => document.body.classList.toggle('hf-fullscreen', !!c.on),
   };
 
   function runCommand(command) {
@@ -1452,6 +1457,7 @@
       console.error('shell: no initial state', err);
     }
     locked = !!state.locked;
+    document.body.classList.toggle('hf-mac', IS_MAC);
 
     buildToolbar();
     setWorkspaces(state.workspaces);

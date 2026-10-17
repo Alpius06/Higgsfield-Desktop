@@ -1,6 +1,6 @@
 // Application menu. Shortcuts are shown here but handled by hotkeys.js
 // (registerAccelerator: false), so user-configured bindings apply everywhere.
-const { Menu } = require('electron');
+const { app, Menu } = require('electron');
 const { SECTIONS, byId } = require('../shared/actions');
 
 function truncate(text, max) {
@@ -20,16 +20,38 @@ function build(opts) {
     ...extra,
   });
   const sep = { type: 'separator' };
+  const mac = process.platform === 'darwin';
 
   const workspaceItems = workspaces.length
     ? workspaces.map(w => ({
-      label: truncate(w.name, 48).replace(/&/g, '&&'),
+      label: mac ? truncate(w.name, 48) : truncate(w.name, 48).replace(/&/g, '&&'),
       sublabel: `${w.tabCount} ${w.tabCount === 1 ? 'tab' : 'tabs'}`,
       click: () => loadWorkspace(w.id),
     }))
     : [{ label: 'No saved workspaces yet', enabled: false }];
 
-  return Menu.buildFromTemplate([
+  // macOS keeps Settings and Quit in the app menu named after the app, with the
+  // system's Services, Hide and Show All beside them.
+  const appMenu = {
+    label: app.name,
+    submenu: [
+      { role: 'about', label: 'About Higgsfield' },
+      sep,
+      action('openSettings', { label: 'Settings…' }),
+      action('openHotkeys', { label: 'Hotkeys…' }),
+      sep,
+      { role: 'services' },
+      sep,
+      { role: 'hide', label: 'Hide Higgsfield' },
+      { role: 'hideOthers' },
+      { role: 'unhide' },
+      sep,
+      { role: 'quit', label: 'Quit Higgsfield' },
+    ],
+  };
+
+  const template = [
+    ...(mac ? [appMenu] : []),
     {
       label: '&File',
       submenu: [
@@ -39,13 +61,14 @@ function build(opts) {
         sep,
         action('openDownloads', { label: 'Open Downloads Folder' }),
         sep,
-        action('openSettings', { label: 'Settings…' }),
-        action('openHotkeys', { label: 'Hotkeys…' }),
-        sep,
+        ...(mac ? [] : [
+          action('openSettings', { label: 'Settings…' }),
+          action('openHotkeys', { label: 'Hotkeys…' }),
+          sep,
+        ]),
         action('clearCache', { label: 'Clear Cache' }),
         { label: 'Clear All Data and Sign Out…', click: clearAllData },
-        sep,
-        { role: 'quit', label: 'Quit Higgsfield' },
+        ...(mac ? [] : [sep, { role: 'quit', label: 'Quit Higgsfield' }]),
       ],
     },
     { role: 'editMenu', label: '&Edit' },
@@ -97,7 +120,12 @@ function build(opts) {
         { label: 'Reset Layout', click: () => sendCommand({ type: 'resetLayout' }) },
       ],
     },
-  ]);
+    ...(mac ? [{ role: 'windowMenu' }] : []),
+  ];
+
+  // "&File": the & marks the Alt-key letter on Windows; macOS has no such letters.
+  if (mac) for (const item of template) if (item.label) item.label = item.label.replace(/&(?!&)/g, '');
+  return Menu.buildFromTemplate(template);
 }
 
 module.exports = { build };

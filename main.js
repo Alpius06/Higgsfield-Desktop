@@ -17,6 +17,7 @@ const { PARTITION, isSite, SECTIONS, byId } = require('./src/shared/actions');
 // single-instance lock, so it can run next to the everyday app).
 if (process.env.HIGGSFIELD_PROFILE) app.setPath('userData', process.env.HIGGSFIELD_PROFILE);
 
+const IS_MAC = process.platform === 'darwin';
 const BACKGROUND = '#0f1113';
 const ICON = path.join(__dirname, 'build', 'icon.png');
 const SHELL_PAGE = path.join(__dirname, 'src', 'renderer', 'shell', 'index.html');
@@ -506,6 +507,8 @@ function createMainWindow() {
     icon: ICON,
     backgroundColor: BACKGROUND,
     autoHideMenuBar: autoHide,
+    // macOS: no title bar; the window buttons sit in the toolbar, which drags the window.
+    ...(IS_MAC ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 12 } } : {}),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'src', 'preload', 'shell.js'),
@@ -545,6 +548,9 @@ function createMainWindow() {
     tray.handleClose(event);
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+  // The toolbar leaves room for the window buttons, which full screen hides.
+  mainWindow.on('enter-full-screen', () => sendCommand({ type: 'fullScreen', on: true }, { reveal: false }));
+  mainWindow.on('leave-full-screen', () => sendCommand({ type: 'fullScreen', on: false }, { reveal: false }));
 
   // Mouse side buttons
   mainWindow.on('app-command', (_e, cmd) => {
@@ -581,6 +587,15 @@ function openSettings(section = 'general') {
   });
   settingsWindow.setMenu(null);
   lockDown(settingsWindow.webContents);
+  // The app's shortcuts belong to the main window; ⌘W here closes Settings, as in any Mac app.
+  if (IS_MAC) {
+    settingsWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.meta && !input.control && !input.alt && input.code === 'KeyW') {
+        event.preventDefault();
+        settingsWindow.close();
+      }
+    });
+  }
   settingsWindow.once('ready-to-show', () => settingsWindow.show());
   settingsWindow.on('closed', () => {
     settingsWindow = null;
@@ -709,7 +724,15 @@ function registerIpc() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.setAppUserModelId('ro.badwolf.higgsfield');
+  if (process.platform === 'win32') app.setAppUserModelId('ro.badwolf.higgsfield');
+  if (IS_MAC) {
+    app.setAboutPanelOptions({
+      applicationName: 'Higgsfield',
+      applicationVersion: app.getVersion(),
+      credits: 'An unofficial desktop app for higgsfield.ai. Not affiliated with Higgsfield.',
+      website: 'https://github.com/badwolf-ro/Higgsfield-Desktop',
+    });
+  }
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
 
   app.on('second-instance', () => tray.showWindow());
@@ -752,6 +775,15 @@ if (!app.requestSingleInstanceLock()) {
       },
     });
 
+    if (IS_MAC) {
+      // A packaged app takes its Dock icon from the bundle; running from source shows Electron's.
+      if (!app.isPackaged) app.dock.setIcon(path.join(__dirname, 'build', 'icon-mac.png'));
+      app.dock.setMenu(Menu.buildFromTemplate([
+        { label: 'New Tab', click: () => sendCommand({ type: 'newTab' }) },
+        { label: 'Open Downloads Folder', click: () => downloads.openFolder() },
+      ]));
+    }
+
     tray.init({
       getWindow: () => mainWindow,
       settings,
@@ -778,6 +810,7 @@ if (!app.requestSingleInstanceLock()) {
       onStatus: count => {
         generating = count;
         sendCommand({ type: 'status', generating: count }, { reveal: false });
+        if (IS_MAC) app.dock.setBadge(count > 0 ? String(count) : '');
       },
     });
 
@@ -821,6 +854,12 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     refreshMenu();
     createMainWindow();
+  });
+
+  // Clicking the Dock icon brings back a window closed to the Dock.
+  app.on('activate', () => {
+    if (mainWindow) tray.showWindow();
+    else if (app.isReady()) createMainWindow();
   });
 
   app.on('before-quit', () => tray.setQuitting());
