@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.1
+
+### Changed
+
+- **Tabs show the project's name.** A tab inside a Cinema Studio project is titled with the project, e.g. **Overclock**, instead of "Cinema Studio". It follows renames, and goes back to the page's own title when the tab leaves the project.
+
 ## 2.4.0
 
 ### New

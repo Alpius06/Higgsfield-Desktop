@@ -76,6 +76,7 @@ let savedLayoutJson = ''; // what layout.json holds, so unchanged layouts are no
 let generating = 0;
 const savedFiles = new Set(); // downloads the tab UI may reveal in Explorer
 const tabProjects = new Map(); // tab webContentsId -> { key, at }: the Cinema Studio project it is in
+const shownTabNames = new Map(); // tab webContentsId -> the project name its title shows
 
 function sendCommand(command, { reveal = true } = {}) {
   if (!mainWindow) return;
@@ -171,7 +172,18 @@ function trackTab(contents, url) {
   const project = projects.seen(url, tabProjects.get(contents.id));
   if (project) tabProjects.set(contents.id, { key: project.key, at: Date.now() });
   else tabProjects.delete(contents.id);
+  showTabProject(contents.id);
   showActiveProject();
+}
+
+// A tab inside a project is titled with the project's name.
+function showTabProject(id) {
+  const entry = tabProjects.get(id);
+  const project = entry && projects.get(entry.key);
+  const name = project ? project.name : null;
+  if (shownTabNames.get(id) === name) return;
+  shownTabNames.set(id, name);
+  sendCommand({ type: 'tabProject', webContentsId: id, name }, { reveal: false });
 }
 
 // Downloads started in a tab that is inside a Cinema Studio project go to its folder.
@@ -424,7 +436,10 @@ function buildContextMenu(contents, p) {
 function wirePage(contents) {
   contents.on('did-navigate', (_e, url) => trackTab(contents, url));
   contents.on('did-navigate-in-page', (_e, url, isMainFrame) => { if (isMainFrame) trackTab(contents, url); });
-  contents.once('destroyed', () => tabProjects.delete(contents.id));
+  contents.once('destroyed', () => {
+    tabProjects.delete(contents.id);
+    shownTabNames.delete(contents.id);
+  });
   contents.setWindowOpenHandler(({ url, disposition }) => {
     if (isGoogleSignIn(url)) {
       handleGoogleSignIn(contents);
@@ -776,6 +791,7 @@ if (!app.requestSingleInstanceLock()) {
 
     projects.on('change', list => {
       sendCommand({ type: 'csProjects', items: menuProjects() }, { reveal: false });
+      for (const id of tabProjects.keys()) showTabProject(id);
       showActiveProject();
       sendToSettings('settings:projects-changed', list);
     });

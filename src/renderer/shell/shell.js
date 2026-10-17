@@ -20,6 +20,7 @@
   let locked = false;
   let seq = 0;
   const pages = new Map(); // panel id -> Page
+  const tabProjectNames = new Map(); // webContentsId -> name of the Cinema Studio project that tab is in
   const headerParts = new Set(); // per-group header widgets that mirror the active tab
   const headerGroups = new WeakMap(); // header widget element -> its group
   const closedUrls = [];
@@ -199,6 +200,7 @@
       wv.addEventListener('dom-ready', () => {
         this.ready = true;
         this.webContentsId = wv.getWebContentsId();
+        this.syncTitle();
         this.reportViewport(true);
         this.changed();
       });
@@ -232,7 +234,7 @@
     }
 
     syncTitle() {
-      const title = tabTitle(this.currentUrl, this.pageTitle);
+      const title = tabProjectNames.get(this.webContentsId) || tabTitle(this.currentUrl, this.pageTitle);
       if (this.api.title !== title) this.api.setTitle(title);
     }
 
@@ -1307,6 +1309,15 @@
     quickSections: c => setQuickSections(c.ids),
     csProject: setCsProject,
     csProjects: c => setCsProjects(c.items),
+    tabProject: c => {
+      if (c.name) tabProjectNames.set(c.webContentsId, String(c.name));
+      else tabProjectNames.delete(c.webContentsId);
+      const page = pageByContents(c.webContentsId);
+      if (page) {
+        page.syncTitle();
+        tabsChanged();
+      }
+    },
     setLocked: c => setLocked(c.locked),
     viewportInfo: c => {
       const page = pageByContents(c.webContentsId);
